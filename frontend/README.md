@@ -187,7 +187,7 @@ npm run preview
 - Credit pack selection with pricing
 - Payment method information
 - Transaction history
-- UPI payment integration
+- Direct credit purchase
 - Order tracking and status
 
 ## 🔧 API Integration

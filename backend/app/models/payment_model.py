@@ -7,11 +7,11 @@ class Payment(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    order_id = Column(String(255), nullable=False)  # gateway order id
+    order_id = Column(String(255), nullable=False)
     amount_inr = Column(Numeric(10, 2), nullable=False)
     currency = Column(String(10), nullable=False)
     status = Column(String(50), nullable=False)
-    method = Column(String(50), nullable=False)  # UPI
+    method = Column(String(50), nullable=False)
     payload_json = Column(JSON, nullable=True)
     signature = Column(String(500), nullable=True)
     

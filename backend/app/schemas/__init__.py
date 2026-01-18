@@ -31,13 +31,11 @@ from .payment_schemas import (
     TransactionResponse as PaymentTransactionResponse,
     PaymentOrderRequest,
     PaymentOrderResponse,
-    PaymentWebhookRequest,
     CreditPackResponse,
     TransactionListResponse
 )
 
 __all__ = [
-    # User schemas
     "CreateUser",
     "LoginUser", 
     "Token",
@@ -48,26 +46,19 @@ __all__ = [
     "UserWithProfile",
     "TransactionResponse",
     "WalletResponse",
-
-    # Role schemas
     "RoleResponse",
     "RoleSelectionCreate",
     "UserRoleSelectionResponse",
-    
-    # CV schemas
     "CVPresignRequest",
     "CVPresignResponse",
     "CVConfirmRequest",
     "CVResponse",
     "CVListResponse",
     "CVDownloadResponse",
-
-    # Payment schemas
     "PaymentWalletResponse",
     "PaymentTransactionResponse",
     "PaymentOrderRequest",
     "PaymentOrderResponse",
-    "PaymentWebhookRequest",
     "CreditPackResponse",
     "TransactionListResponse"
 ]

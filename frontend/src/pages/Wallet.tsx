@@ -4,17 +4,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { walletAPI } from '@/lib/api';
+import { walletAPI, setAuthToken } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { 
-  ArrowLeft, 
-  Wallet as WalletIcon, 
-  CreditCard, 
-  TrendingUp, 
-  CheckCircle, 
+import {
+  ArrowLeft,
+  Wallet as WalletIcon,
+  CreditCard,
+  TrendingUp,
+  CheckCircle,
   Clock,
   AlertCircle,
   Zap,
@@ -23,9 +22,6 @@ import {
   Gift,
   Shield,
   Smartphone,
-  QrCode,
-  Copy,
-  ExternalLink,
   ArrowRight,
   History,
   Download
@@ -35,14 +31,11 @@ import toast from 'react-hot-toast';
 const Wallet = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [selectedPack, setSelectedPack] = useState<number | null>(null);
-  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-  const [paymentData, setPaymentData] = useState<any>(null);
 
   const handleLogout = () => {
-    localStorage.removeItem('access_token');
+    setAuthToken(null);
     localStorage.removeItem('name');
-    navigate('/login');
+    navigate('/login', { replace: true });
   }
 
   // Fetch wallet data
@@ -60,10 +53,10 @@ const Wallet = () => {
   // Create payment order mutation
   const createOrderMutation = useMutation({
     mutationFn: walletAPI.createPaymentOrder,
-    onSuccess: (response) => {
-      setPaymentData(response.data);
-      setShowPaymentDialog(true);
-      toast.success('Payment order created successfully!');
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      queryClient.refetchQueries({ queryKey: ['wallet'] });
+      toast.success('Credits successfully added to your wallet!');
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.detail || 'Failed to create payment order');
@@ -114,19 +107,12 @@ const Wallet = () => {
   ];
 
   const handlePurchase = (packId: number) => {
-    setSelectedPack(packId);
     createOrderMutation.mutate(packId);
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success('Copied to clipboard!');
-  };
-
-  const openUPIApp = () => {
-    if (paymentData?.upi_link) {
-      window.open(paymentData.upi_link, '_blank');
-    }
   };
 
   const getTransactionIcon = (type: string) => {
@@ -205,7 +191,7 @@ const Wallet = () => {
               <div>
                 <h2 className="text-2xl font-bold mb-2">Current Balance</h2>
                 <div className="text-4xl font-bold mb-2">
-                  {wallet?.balance_credits || 0}
+                  {wallet?.data?.balance_credits || 0}
                 </div>
                 <p className="text-blue-100">Interview Credits Available</p>
               </div>
@@ -228,8 +214,8 @@ const Wallet = () => {
               <h2 className="text-2xl font-bold text-slate-900 mb-6">Choose Your Credit Pack</h2>
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {creditPacks.map((pack) => (
-                  <Card 
-                    key={pack.id} 
+                  <Card
+                    key={pack.id}
                     className={`relative ${pack.popular ? 'ring-2 ring-blue-500 bg-blue-50' : ''}`}
                   >
                     {pack.popular && (
@@ -269,8 +255,8 @@ const Wallet = () => {
                           </li>
                         ))}
                       </ul>
-                      <Button 
-                        className="w-full" 
+                      <Button
+                        className="w-full"
                         onClick={() => handlePurchase(pack.id)}
                         disabled={createOrderMutation.isPending}
                       >
@@ -291,16 +277,7 @@ const Wallet = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className="flex items-center space-x-3 p-4 border rounded-lg">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                      <Smartphone className="h-5 w-5 text-green-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-slate-900">UPI Payment</h3>
-                      <p className="text-sm text-slate-600">Pay via UPI apps</p>
-                    </div>
-                  </div>
+                <div className="grid md:grid-cols-2 gap-4">
                   <div className="flex items-center space-x-3 p-4 border rounded-lg">
                     <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                       <CreditCard className="h-5 w-5 text-blue-600" />
@@ -338,9 +315,9 @@ const Wallet = () => {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
                     <p className="text-slate-600">Loading transactions...</p>
                   </div>
-                ) : transactions && transactions.transactions.length > 0 ? (
+                ) : transactions?.data?.transactions?.length > 0 ? (
                   <div className="space-y-4">
-                    {transactions.transactions.map((transaction: any) => (
+                    {transactions.data.transactions.map((transaction: any) => (
                       <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center space-x-3">
                           {getTransactionIcon(transaction.type)}
@@ -362,7 +339,7 @@ const Wallet = () => {
                               ₹{transaction.amount_inr}
                             </div>
                           )}
-                          <Badge 
+                          <Badge
                             variant={transaction.status === 'success' ? 'default' : 'secondary'}
                             className="text-xs"
                           >
@@ -383,120 +360,6 @@ const Wallet = () => {
             </Card>
           </TabsContent>
         </Tabs>
-
-        {/* Payment Dialog */}
-        <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Complete Payment</DialogTitle>
-              <DialogDescription>
-                Complete your payment to add credits to your wallet
-              </DialogDescription>
-            </DialogHeader>
-            
-            {paymentData && (
-              <div className="space-y-6">
-                {/* Order Summary */}
-                <div className="bg-slate-50 p-4 rounded-lg">
-                  <h3 className="font-medium text-slate-900 mb-2">Order Summary</h3>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span>Order ID:</span>
-                      <span className="font-mono">{paymentData.order_id}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Amount:</span>
-                      <span className="font-medium">₹{paymentData.amount}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* UPI Payment */}
-                <div className="space-y-4">
-                  <h3 className="font-medium text-slate-900">UPI Payment</h3>
-                  
-                  {/* QR Code */}
-                  {paymentData.qr_code && (
-                    <div className="text-center">
-                      <img 
-                        src={paymentData.qr_code} 
-                        alt="UPI QR Code" 
-                        className="mx-auto border rounded-lg"
-                      />
-                      <p className="text-sm text-slate-600 mt-2">
-                        Scan QR code with your UPI app
-                      </p>
-                    </div>
-                  )}
-
-                  {/* UPI Link */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-900">UPI Link</label>
-                    <div className="flex items-center space-x-2">
-                      <Input 
-                        value={paymentData.upi_link} 
-                        readOnly 
-                        className="font-mono text-xs"
-                      />
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => copyToClipboard(paymentData.upi_link)}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex space-x-2">
-                    <Button 
-                      onClick={openUPIApp}
-                      className="flex-1"
-                    >
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Open UPI App
-                    </Button>
-                    <Button 
-                      variant="outline"
-                      onClick={() => copyToClipboard(paymentData.upi_link)}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Instructions */}
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    After completing payment, your credits will be added automatically. 
-                    If you face any issues, contact our support team.
-                  </AlertDescription>
-                </Alert>
-
-                <div className="flex space-x-2">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setShowPaymentDialog(false)}
-                    className="flex-1"
-                  >
-                    Close
-                  </Button>
-                  <Button 
-                    onClick={() => {
-                      queryClient.invalidateQueries({ queryKey: ['wallet'] });
-                      setShowPaymentDialog(false);
-                    }}
-                    className="flex-1"
-                  >
-                    Check Balance
-                  </Button>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
       </div>
     </div>
   );

@@ -9,13 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Progress } from '@/components/ui/Progress';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/Dialog';
-import { cvsAPI, rolesAPI } from '@/lib/api';
+import { cvsAPI, rolesAPI, setAuthToken } from '@/lib/api';
 import { formatFileSize } from '@/lib/utils';
-import { 
-  ArrowLeft, 
-  Upload as UploadIcon, 
-  FileText, 
-  CheckCircle, 
+import {
+  ArrowLeft,
+  Upload as UploadIcon,
+  FileText,
+  CheckCircle,
   AlertCircle,
   X,
   Download,
@@ -25,8 +25,7 @@ import {
   Target,
   Briefcase,
   Clock,
-  File,
-  Image
+  File
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -43,12 +42,12 @@ const Upload = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [selectedRole, setSelectedRole] = useState<string>('');
+  const [selectedRole, setSelectedRole] = useState<string>('none');
 
   const handleLogout = () => {
-    localStorage.removeItem('access_token');
+    setAuthToken(null);
     localStorage.removeItem('name');
-    navigate('/login');
+    navigate('/login', { replace: true });
   }
 
   // Fetch user's selected roles
@@ -82,7 +81,7 @@ const Upload = () => {
     const validFiles = acceptedFiles.filter(file => {
       const isValidType = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.type);
       const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB limit
-      
+
       if (!isValidType) {
         toast.error(`${file.name}: Invalid file type. Only PDF, DOC, and DOCX are allowed.`);
         return false;
@@ -122,21 +121,18 @@ const Upload = () => {
       const presignResponse = await cvsAPI.presignUpload({
         filename: uploadFile.file.name,
         mime_type: uploadFile.file.type,
-        role_id: selectedRole ? parseInt(selectedRole) : undefined,
+        role_id: selectedRole !== 'none' ? parseInt(selectedRole) : undefined,
       });
 
       const { url, fields } = presignResponse.data;
 
-      // Step 2: Upload to storage
-      const formData = new FormData();
-      Object.entries(fields).forEach(([key, value]) => {
-        formData.append(key, value as string);
-      });
-      formData.append('file', uploadFile.file);
-
+      // Step 2: Upload to storage (PUT to presigned URL)
       const uploadResponse = await fetch(url, {
-        method: 'POST',
-        body: formData,
+        method: 'PUT',
+        headers: {
+          'Content-Type': uploadFile.file.type,
+        },
+        body: uploadFile.file,
       });
 
       if (!uploadResponse.ok) {
@@ -147,13 +143,13 @@ const Upload = () => {
       const confirmResponse = await cvsAPI.confirmUpload({
         filename: uploadFile.file.name,
         storage_filename: fields.filename,
-        role_id: selectedRole ? parseInt(selectedRole) : undefined,
+        role_id: selectedRole !== 'none' ? parseInt(selectedRole) : undefined,
         size_bytes: uploadFile.file.size,
       });
 
       // Update file status
-      setUploadedFiles(prev => prev.map(f => 
-        f.id === uploadFile.id 
+      setUploadedFiles(prev => prev.map(f =>
+        f.id === uploadFile.id
           ? { ...f, status: 'success', progress: 100, cvId: confirmResponse.data.id }
           : f
       ));
@@ -162,8 +158,8 @@ const Upload = () => {
       queryClient.invalidateQueries({ queryKey: ['userCVs'] });
 
     } catch (error: any) {
-      setUploadedFiles(prev => prev.map(f => 
-        f.id === uploadFile.id 
+      setUploadedFiles(prev => prev.map(f =>
+        f.id === uploadFile.id
           ? { ...f, status: 'error', error: error.message || 'Upload failed' }
           : f
       ));
@@ -253,8 +249,8 @@ const Upload = () => {
                     <SelectValue placeholder="Select a role (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No specific role</SelectItem>
-                    {userRoles?.map((role: any) => (
+                    <SelectItem value="none">No specific role</SelectItem>
+                    {Array.isArray(userRoles?.data) && userRoles!.data.map((role: any) => (
                       <SelectItem key={role.role_id} value={role.role_id.toString()}>
                         <div className="flex items-center space-x-2">
                           <Briefcase className="h-4 w-4" />
@@ -278,11 +274,10 @@ const Upload = () => {
               <CardContent>
                 <div
                   {...getRootProps()}
-                  className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-                    isDragActive 
-                      ? 'border-blue-500 bg-blue-50' 
-                      : 'border-slate-300 hover:border-slate-400'
-                  }`}
+                  className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${isDragActive
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-slate-300 hover:border-slate-400'
+                    }`}
                 >
                   <input {...getInputProps()} />
                   <UploadIcon className="h-12 w-12 text-slate-400 mx-auto mb-4" />
@@ -420,9 +415,9 @@ const Upload = () => {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
                 <p className="text-slate-600">Loading CVs...</p>
               </div>
-            ) : Array.isArray(userCVs?.cvs) && userCVs.cvs.length > 0 ? (
+            ) : Array.isArray(userCVs?.data?.cvs) && userCVs.data.cvs.length > 0 ? (
               <div className="space-y-4">
-                {userCVs.cvs.map((cv: any) => (
+                {userCVs.data.cvs.map((cv: any) => (
                   <div key={cv.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center space-x-3">
                       {getFileIcon(cv.filename)}
@@ -476,8 +471,8 @@ const Upload = () => {
                           </div>
                         </DialogContent>
                       </Dialog>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={() => handleDeleteCV(cv.id)}
                         disabled={deleteCVMutation.isPending}

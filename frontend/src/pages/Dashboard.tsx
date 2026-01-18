@@ -7,23 +7,23 @@ import { Badge } from '@/components/ui/Badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/Avatar';
 import { Progress } from '@/components/ui/Progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { profileAPI, walletAPI, rolesAPI, cvsAPI } from '@/lib/api';
+import { profileAPI, walletAPI, rolesAPI, cvsAPI, authAPI, setAuthToken, activityAPI } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { 
-  User, 
-  CreditCard, 
-  FileText, 
-  Target, 
+import {
+  User,
+  CreditCard,
+  FileText,
+  Target,
   Brain,
   TrendingUp,
-  Activity,
+  Activity as ActivityIcon,
   Plus,
   ArrowRight,
   Settings,
   LogOut,
-  Wallet,
+  Wallet as WalletIcon,
   Briefcase,
-  Upload,
+  Upload as UploadIcon,
   Play,
   BarChart3,
   Clock,
@@ -60,37 +60,34 @@ const Dashboard = () => {
     queryFn: () => cvsAPI.getUserCVs(0, 5),
   });
 
+  const { data: activity } = useQuery({
+    queryKey: ['activities'],
+    queryFn: () => activityAPI.getActivities(5),
+    refetchInterval: 30000,
+  });
+
   const handleLogout = async () => {
-    try {
-      await profileAPI.logout();
-      localStorage.removeItem('access_token');
-      toast.success('Logged out successfully');
-      navigate('/');
-    } catch (error) {
-      localStorage.removeItem('access_token');
-      navigate('/');
-    }
+    // Immediate client-side logout and navigation
+    setAuthToken(null);
+    localStorage.removeItem('name');
+    navigate('/login', { replace: true });
+    toast.success('Logged out successfully');
+    // Fire-and-forget server logout
+    try { authAPI.logout().catch(() => { }); } catch { }
   };
 
   const quickActions = [
     {
-      title: 'Choose AI Interviewer',
-      description: 'Select from 7 specialized AI interviewers',
+      title: 'Choose Roles',
+      description: 'Select roles to practice interviews',
       icon: <Brain className="h-5 w-5" />,
       link: '/roles',
       color: 'bg-gradient-to-r from-blue-500 to-indigo-500'
     },
     {
-      title: 'View AI Persona',
-      description: 'See your personalized AI profile',
-      icon: <User className="h-5 w-5" />,
-      link: '/persona',
-      color: 'bg-gradient-to-r from-indigo-500 to-purple-500'
-    },
-    {
       title: 'Upload CV',
       description: 'Upload your CV for role mapping',
-      icon: <Upload className="h-5 w-5" />,
+      icon: <UploadIcon className="h-5 w-5" />,
       link: '/upload',
       color: 'bg-gradient-to-r from-green-500 to-emerald-500'
     },
@@ -117,12 +114,24 @@ const Dashboard = () => {
     }
   ];
 
-  const recentActivities = [
-    { type: 'profile_update', message: 'Updated profile information', time: '2 hours ago', icon: <User className="h-4 w-4" /> },
-    { type: 'ai_interviewer_selection', message: 'Selected Software Engineer AI Interviewer', time: '1 day ago', icon: <Brain className="h-4 w-4" /> },
-    { type: 'cv_upload', message: 'Uploaded CV for AI analysis', time: '2 days ago', icon: <FileText className="h-4 w-4" /> },
-    { type: 'credit_purchase', message: 'Purchased 50 credits for AI interviews', time: '3 days ago', icon: <CreditCard className="h-4 w-4" /> },
-  ];
+  const getActivityIcon = (type?: string) => {
+    switch (type) {
+      case 'transaction_purchase':
+        return <CreditCard className="h-4 w-4 text-green-600" />
+      case 'transaction_deduct':
+        return <WalletIcon className="h-4 w-4 text-red-600" />
+      case 'screening':
+        return <FileText className="h-4 w-4 text-blue-600" />
+      case 'interview':
+        return <Play className="h-4 w-4 text-indigo-600" />
+      case 'role_selection':
+        return <Brain className="h-4 w-4 text-purple-600" />
+      case 'cv_upload':
+        return <UploadIcon className="h-4 w-4 text-emerald-600" />
+      default:
+        return <ActivityIcon className="h-4 w-4 text-slate-600" />
+    }
+  }
 
   if (profileLoading || walletLoading) {
     return (
@@ -149,30 +158,30 @@ const Dashboard = () => {
                 <span className="text-xl font-bold text-slate-900">InterviewPro</span>
               </Link>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               {/* Wallet Balance */}
               <div className="flex items-center space-x-2 bg-slate-100 px-3 py-2 rounded-lg">
-                <Wallet className="h-4 w-4 text-slate-600" />
+                <WalletIcon className="h-4 w-4 text-slate-600" />
                 <span className="text-sm font-medium text-slate-900">
-                  {wallet?.balance_credits || 0} Credits
+                  {wallet?.data?.balance_credits || 0} Credits
                 </span>
               </div>
-              
+
               {/* User Menu */}
               <div className="flex items-center space-x-3">
                 <Avatar>
                   <AvatarImage src="" />
                   <AvatarFallback>
-                    {profile?.user?.name?.charAt(0) || 'U'}
+                    {profile?.data?.user?.name?.charAt(0) || 'U'}
                   </AvatarFallback>
                 </Avatar>
                 <div className="hidden md:block">
                   <p className="text-sm font-medium text-slate-900">
-                    {profile?.user?.name || 'User'}
+                    {profile?.data?.user?.name || 'User'}
                   </p>
                   <p className="text-xs text-slate-600">
-                    {profile?.user?.email || 'user@example.com'}
+                    {profile?.data?.user?.email || 'user@example.com'}
                   </p>
                 </div>
                 <Button variant="ghost" size="sm" onClick={handleLogout}>
@@ -188,7 +197,7 @@ const Dashboard = () => {
         {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            Welcome back, {profile?.user?.name || 'User'}!
+            Welcome back, {profile?.data?.user?.name || 'User'}!
           </h1>
           <p className="text-slate-600">
             Ready to practice your next interview? Let's get started.
@@ -210,10 +219,10 @@ const Dashboard = () => {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Credits Balance</CardTitle>
-                  <Wallet className="h-4 w-4 text-muted-foreground" />
+                  <WalletIcon className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{wallet?.balance_credits || 0}</div>
+                  <div className="text-2xl font-bold">{wallet?.data?.balance_credits || 0}</div>
                   <p className="text-xs text-muted-foreground">
                     Available for interviews
                   </p>
@@ -226,7 +235,7 @@ const Dashboard = () => {
                   <Brain className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{userRoles?.length || 0}</div>
+                  <div className="text-2xl font-bold">{userRoles?.data?.length || 0}</div>
                   <p className="text-xs text-muted-foreground">
                     AI interviewers selected
                   </p>
@@ -239,7 +248,7 @@ const Dashboard = () => {
                   <FileText className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{userCVs?.cvs?.length || 0}</div>
+                  <div className="text-2xl font-bold">{userCVs?.data?.cvs?.length || 0}</div>
                   <p className="text-xs text-muted-foreground">
                     Documents uploaded
                   </p>
@@ -294,14 +303,14 @@ const Dashboard = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {recentActivities.map((activity, index) => (
+                    {activity?.data?.activities?.map((a: any, index: number) => (
                       <div key={index} className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center">
-                          {activity.icon}
+                          {getActivityIcon(a.type)}
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-medium text-slate-900">{activity.message}</p>
-                          <p className="text-xs text-slate-600">{activity.time}</p>
+                          <p className="text-sm font-medium text-slate-900">{a.message}</p>
+                          <p className="text-xs text-slate-600">{new Date(a.created_at).toLocaleString()}</p>
                         </div>
                       </div>
                     ))}
@@ -320,19 +329,19 @@ const Dashboard = () => {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-slate-600">Name</span>
-                      <span className="text-sm font-medium">{profile?.user?.name || 'Not set'}</span>
+                      <span className="text-sm font-medium">{profile?.data?.user?.name || 'Not set'}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-slate-600">Email</span>
-                      <span className="text-sm font-medium">{profile?.user?.email || 'Not set'}</span>
+                      <span className="text-sm font-medium">{profile?.data?.user?.email || 'Not set'}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-slate-600">Phone</span>
-                      <span className="text-sm font-medium">{profile?.user?.phone || 'Not set'}</span>
+                      <span className="text-sm font-medium">{profile?.data?.user?.phone || 'Not set'}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-slate-600">City</span>
-                      <span className="text-sm font-medium">{profile?.user?.city || 'Not set'}</span>
+                      <span className="text-sm font-medium">{profile?.data?.user?.city || 'Not set'}</span>
                     </div>
                     <Link to="/profile">
                       <Button variant="outline" size="sm" className="w-full">
@@ -370,9 +379,9 @@ const Dashboard = () => {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
                     <p className="text-slate-600">Loading roles...</p>
                   </div>
-                ) : userRoles && userRoles.length > 0 ? (
+                ) : userRoles?.data && userRoles.data.length > 0 ? (
                   <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {userRoles.map((role: any) => (
+                    {userRoles.data.map((role: any) => (
                       <div key={role.id} className="p-4 border rounded-lg">
                         <h3 className="font-semibold text-slate-900 mb-2">{role.role_title}</h3>
                         <p className="text-sm text-slate-600 mb-3">{role.role_description}</p>
@@ -427,9 +436,9 @@ const Dashboard = () => {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
                     <p className="text-slate-600">Loading CVs...</p>
                   </div>
-                ) : Array.isArray(userCVs?.cvs) && userCVs.cvs.length > 0 ? (
+                ) : Array.isArray(userCVs?.data?.cvs) && userCVs.data.cvs.length > 0 ? (
                   <div className="space-y-4">
-                    {userCVs.cvs.map((cv: any) => (
+                    {userCVs.data.cvs.map((cv: any) => (
                       <div key={cv.id} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center space-x-3">
                           <FileText className="h-8 w-8 text-blue-600" />
@@ -453,7 +462,7 @@ const Dashboard = () => {
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <Upload className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                    <UploadIcon className="h-12 w-12 text-slate-400 mx-auto mb-4" />
                     <h3 className="text-lg font-semibold text-slate-900 mb-2">No CVs uploaded</h3>
                     <p className="text-slate-600 mb-4">Upload your CV to get started with role mapping</p>
                     <Link to="/upload">
@@ -478,16 +487,15 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {recentActivities.map((activity, index) => (
+                  {(activity?.data?.activities || []).slice(0, 5).map((a: any, index: number) => (
                     <div key={index} className="flex items-center space-x-3 p-3 border rounded-lg">
                       <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center">
-                        {activity.icon}
+                        <CheckCircle className="h-4 w-4 text-green-600" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-slate-900">{activity.message}</p>
-                        <p className="text-xs text-slate-600">{activity.time}</p>
+                        <p className="text-sm font-medium text-slate-900">{a.message}</p>
+                        <p className="text-xs text-slate-600">{new Date(a.created_at).toLocaleString()}</p>
                       </div>
-                      <CheckCircle className="h-4 w-4 text-green-600" />
                     </div>
                   ))}
                 </div>

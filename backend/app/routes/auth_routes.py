@@ -106,11 +106,11 @@ def _issue_tokens_response(session: Session, user: User) -> Response:
     expire = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access = create_access_token(data={"sub": user.email}, expires_delta=expire)
     refresh = create_refresh_token(data={"sub": user.email})
-    # persist refresh token
+     
     user.refresh_token = refresh
     session.add(user)
     session.commit()
-    # build response
+
     response_data = {"access_token": access, "token_type": "bearer"}
     response = Response(content=json.dumps(response_data), media_type="application/json")
     response.set_cookie(
@@ -129,7 +129,7 @@ def _issue_tokens_data(session: Session, user: User) -> dict:
     expire = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access = create_access_token(data={"sub": user.email}, expires_delta=expire)
     refresh = create_refresh_token(data={"sub": user.email})
-    # persist refresh token
+    
     user.refresh_token = refresh
     session.add(user)
     session.commit()
@@ -166,7 +166,7 @@ async def google_login(request: Request, session: SessionDep):
         existing_user = session.query(User).filter(User.email == user_data["email"]).first()
         if existing_user:
             tokens = _issue_tokens_data(session, existing_user)
-            # Redirect to frontend with token
+             
             frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
             return RedirectResponse(
                 url=f"{frontend_url}/auth/callback?token={tokens['access_token']}&name={user_data.get('name', 'User')}"
@@ -185,7 +185,7 @@ async def google_login(request: Request, session: SessionDep):
             session.refresh(new_user)
             create_complete_user_setup(session, new_user)
             tokens = _issue_tokens_data(session, new_user)
-            # Redirect to frontend with token
+             
             frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
             return RedirectResponse(
                 url=f"{frontend_url}/auth/callback?token={tokens['access_token']}&name={user_data.get('name', 'User')}"
@@ -375,7 +375,6 @@ def refresh_token(request: Request, session: SessionDep):
         raise HTTPException(status_code=403, detail="Refresh token invalid or revoked")
     if user.refresh_token != refresh_token_cookie:
         raise HTTPException(status_code=403, detail="Refresh token mismatch")
-    # Reuse common issuance path to rotate refresh token, persist, and set cookie
     return _issue_tokens_response(session, user)
 
 @router.post("/logout")

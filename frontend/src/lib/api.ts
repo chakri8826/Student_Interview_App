@@ -13,9 +13,15 @@ export const api = axios.create({
 export const setAuthToken = (token: string | null) => {
   if (token) {
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+    try { localStorage.setItem('access_token', token) } catch { }
   } else {
     delete api.defaults.headers.common['Authorization']
+    try { localStorage.removeItem('access_token') } catch { }
   }
+  // Notify app about auth state change (same-tab)
+  try {
+    window.dispatchEvent(new Event('auth-changed'))
+  } catch { }
 }
 
 // Initialize from localStorage on load
@@ -60,7 +66,7 @@ api.interceptors.response.use(
 export const authAPI = {
   register: (data: { name: string; email: string; password: string; city?: string; phone?: string }) =>
     api.post('/api/v1/auth/register', data),
-  
+
   login: (data: { username: string; password: string }) =>
     api.post('/api/v1/auth/login', data, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -72,21 +78,21 @@ export const authAPI = {
         return params
       }]
     }),
-  
+
   refresh: () =>
     api.post('/api/v1/auth/refresh'),
-  
+
   logout: () =>
     api.post('/api/v1/auth/logout'),
-  
+
   googleLogin: () => {
     window.location.href = `${API_BASE_URL}/api/v1/auth/google`
   },
-  
+
   linkedinLogin: () => {
     window.location.href = `${API_BASE_URL}/api/v1/auth/linkedin`
   },
-  
+
   microsoftLogin: () => {
     window.location.href = `${API_BASE_URL}/api/v1/auth/microsoft`
   },
@@ -104,22 +110,23 @@ export const rolesAPI = {
   getRoles: () => api.get('/api/v1/roles'),
   getUserRoles: () => api.get('/api/v1/my/roles'),
   addRoleSelection: (roleIds: number[]) => api.post('/api/v1/my/roles', { role_ids: roleIds }),
+  setUserRoles: (roleIds: number[]) => api.post('/api/v1/my/roles/set', { role_ids: roleIds }),
 }
 
 // CV API
 export const cvsAPI = {
   presignUpload: (data: { filename: string; mime_type: string; role_id?: number }) =>
     api.post('/api/v1/cvs/presign', data),
-  
+
   confirmUpload: (data: { filename: string; storage_filename: string; role_id?: number; size_bytes: number }) =>
     api.post('/api/v1/cvs/confirm', data),
-  
+
   getUserCVs: (skip = 0, limit = 10) =>
     api.get(`/api/v1/cvs?skip=${skip}&limit=${limit}`),
-  
+
   deleteCV: (cvId: number) =>
     api.delete(`/api/v1/cvs/${cvId}`),
-  
+
   getDownloadUrl: (cvId: number) =>
     api.get(`/api/v1/cvs/${cvId}/download`),
 }
@@ -134,13 +141,13 @@ export const walletAPI = {
 
 // Interview API (placeholder for future implementation)
 export const interviewAPI = {
-  startInterview: (data: { role_id: number; cv_id?: number }) => 
+  startInterview: (data: { role_id: number; cv_id?: number }) =>
     api.post('/api/v1/interviews/start', data),
 }
 
 // Screening API (placeholder for future implementation)
 export const screeningAPI = {
-  runScreening: (cv_id: number) => 
+  runScreening: (cv_id: number) =>
     api.post('/api/v1/screenings/run', { cv_id }),
 }
 
@@ -148,4 +155,8 @@ export const screeningAPI = {
 export const personaAPI = {
   getPersona: () => api.get('/api/v1/personas/current'),
   computePersona: () => api.post('/api/v1/personas/compute'),
+}
+
+export const activityAPI = {
+  getActivities: (limit = 20) => api.get(`/api/v1/activities?limit=${limit}`),
 }

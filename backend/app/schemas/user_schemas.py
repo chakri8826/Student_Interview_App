@@ -13,17 +13,13 @@ class LoginUser(BaseModel):
     email: EmailStr
     password: str
 
-# Optional: token response after login
 class Token(BaseModel):
     access_token: str
     token_type: str
-    # refresh_token is now set as HttpOnly cookie, not returned in JSON
 
 class RefreshRequest(BaseModel):
-    # No body needed - refresh token comes from HttpOnly cookie
     pass
 
-# Profile schemas
 class UserProfileUpdate(BaseModel):
     full_name: Optional[constr(min_length=2, max_length=255)] = None
     phone: Optional[constr(max_length=20)] = None
@@ -51,8 +47,7 @@ class UserWithProfile(BaseModel):
     wallet_balance: int
 
 
-
-# Wallet and transaction schemas
+            
 class TransactionResponse(BaseModel):
     id: int
     type: str

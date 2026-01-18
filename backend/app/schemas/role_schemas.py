@@ -2,7 +2,6 @@ from pydantic import BaseModel
 from typing import List
 from datetime import datetime
 
-# Role schemas
 class RoleResponse(BaseModel):
     id: int
     title: str
@@ -11,7 +10,7 @@ class RoleResponse(BaseModel):
     is_active: bool
 
 class RoleSelectionCreate(BaseModel):
-    role_ids: List[int]  # Array of role_ids for multiple selection
+    role_ids: List[int]  
 
 class UserRoleSelectionResponse(BaseModel):
     id: int

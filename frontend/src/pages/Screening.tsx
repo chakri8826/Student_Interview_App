@@ -7,12 +7,12 @@ import { Badge } from '@/components/ui/Badge';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
-import { screeningAPI, cvsAPI, walletAPI } from '@/lib/api';
+import { screeningAPI, cvsAPI, walletAPI, setAuthToken } from '@/lib/api';
 import { formatDate, formatCurrency } from '@/lib/utils';
-import { 
-  ArrowLeft, 
-  FileText, 
-  Play, 
+import {
+  ArrowLeft,
+  FileText,
+  Play,
   Clock,
   AlertCircle,
   CheckCircle,
@@ -48,25 +48,26 @@ const Screening = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedCV, setSelectedCV] = useState<string>('');
-  const [showStartDialog, setShowStartDialog] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
 
   const handleLogout = () => {
-    localStorage.removeItem('access_token');
+    setAuthToken(null);
     localStorage.removeItem('name');
-    navigate('/login');
+    navigate('/login', { replace: true });
   }
 
-  // Fetch user's CVs
+  // Fetch user's CVs with auto-refresh
   const { data: userCVs, isLoading: cvsLoading } = useQuery({
     queryKey: ['userCVs'],
     queryFn: () => cvsAPI.getUserCVs(),
+    refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  // Fetch wallet balance
+  // Fetch wallet balance with auto-refresh
   const { data: wallet } = useQuery({
     queryKey: ['wallet'],
     queryFn: () => walletAPI.getWallet(),
+    refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   // Start screening mutation
@@ -74,11 +75,14 @@ const Screening = () => {
     mutationFn: (cv_id: number) => screeningAPI.runScreening(cv_id),
     onSuccess: (response) => {
       toast.success('CV Screening started successfully!');
+      // Immediately refresh wallet and CVs data
       queryClient.invalidateQueries({ queryKey: ['wallet'] });
-      setShowStartDialog(false);
+      queryClient.invalidateQueries({ queryKey: ['userCVs'] });
       setIsStarting(false);
-      // Navigate to screening results
-      navigate(`/screening/${response.data.id}`);
+      // Navigate to screening results if ID is available
+      if (response?.data?.id) {
+        navigate(`/screening/${response.data.id}`, { state: { analysis: response?.data?.analysis || null } });
+      }
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.detail || 'Failed to start screening');
@@ -92,21 +96,17 @@ const Screening = () => {
       return;
     }
 
-    if ((wallet?.balance_credits || 0) < 1) {
+    if ((wallet?.data?.balance_credits || 0) < 1) {
       toast.error('Insufficient credits. You need at least 1 credit to start screening.');
       return;
     }
 
-    setShowStartDialog(true);
-  };
-
-  const confirmStartScreening = () => {
     setIsStarting(true);
     startScreeningMutation.mutate(parseInt(selectedCV));
   };
 
-  const availableCVs = userCVs?.cvs || [];
-  const credits = wallet?.balance_credits || 0;
+  const availableCVs = userCVs?.data?.cvs || [];
+  const credits = wallet?.data?.balance_credits || 0;
 
   if (cvsLoading) {
     return (
@@ -119,7 +119,7 @@ const Screening = () => {
             </Button>
             <div className="h-8 w-48 bg-gray-200 rounded animate-pulse"></div>
           </div>
-          
+
           <div className="grid gap-6">
             <Card>
               <CardContent className="p-8">
@@ -272,17 +272,17 @@ const Screening = () => {
                   <span className="text-sm text-gray-600">Duration</span>
                   <span className="text-sm font-medium">2-3 minutes</span>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Cost</span>
                   <span className="text-sm font-medium">1 Credit</span>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Format</span>
                   <span className="text-sm font-medium">AI Analysis</span>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Report</span>
                   <span className="text-sm font-medium">Detailed PDF</span>
@@ -350,7 +350,7 @@ const Screening = () => {
 
             {/* Start Screening Button */}
             <div className="space-y-4">
-              <Button 
+              <Button
                 onClick={handleStartScreening}
                 disabled={!selectedCV || credits < 1 || isStarting}
                 className="w-full"
@@ -373,7 +373,7 @@ const Screening = () => {
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    You need at least 1 credit to start screening. 
+                    You need at least 1 credit to start screening.
                     <Link to="/wallet" className="text-blue-600 hover:underline ml-1">
                       Buy credits
                     </Link>
@@ -390,60 +390,6 @@ const Screening = () => {
             </div>
           </div>
         </div>
-
-        {/* Start Screening Confirmation Dialog */}
-        <Dialog open={showStartDialog} onOpenChange={setShowStartDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="flex items-center">
-                <Search className="mr-2 h-5 w-5" />
-                Confirm CV Screening Start
-              </DialogTitle>
-              <DialogDescription>
-                You're about to start AI-powered CV screening. This will consume 1 credit from your wallet.
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4">
-              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                <h4 className="font-semibold text-green-900 mb-2">Screening Details:</h4>
-                <div className="space-y-1 text-sm text-green-800">
-                  <div>• CV: {availableCVs.find((cv: any) => cv.id.toString() === selectedCV)?.filename}</div>
-                  <div>• Duration: 2-3 minutes</div>
-                  <div>• Cost: 1 credit</div>
-                  <div>• Output: Detailed analysis report</div>
-                </div>
-              </div>
-
-              <div className="flex space-x-3">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowStartDialog(false)}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={confirmStartScreening}
-                  disabled={isStarting}
-                  className="flex-1"
-                >
-                  {isStarting ? (
-                    <>
-                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                      Starting...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="mr-2 h-4 w-4" />
-                      Start Screening
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     </div>
   );

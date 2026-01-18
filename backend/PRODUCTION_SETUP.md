@@ -26,41 +26,11 @@ STORAGE_BUCKET=cvs
 STORAGE_REGION=us-east-1
 ```
 
-### Payment Configuration (Razorpay)
-```env
-PAYMENT_PROVIDER=razorpay
-RAZORPAY_KEY=rzp_test_your_razorpay_key_here
-RAZORPAY_SECRET=your_razorpay_secret_here
-MERCHANT_UPI_ID=your-merchant@upi
-COMPANY_NAME=InterviewCredits
-```
-
 ### Application Configuration
 ```env
 APP_ORIGIN=http://localhost:5173
 SESSION_SECRET_KEY=your-session-secret-key
 ```
-
-## Razorpay Setup
-
-1. **Create Razorpay Account:**
-   - Go to https://razorpay.com
-   - Sign up for a business account
-   - Complete KYC verification
-
-2. **Get API Keys:**
-   - Go to Settings → API Keys
-   - Generate new key pair
-   - Copy Key ID and Key Secret
-
-3. **Configure Webhooks:**
-   - Go to Settings → Webhooks
-   - Add webhook URL: `https://yourdomain.com/api/v1/payments/webhook`
-   - Select events: `payment.captured`, `payment.failed`
-
-4. **Set UPI ID:**
-   - Get your UPI ID from your bank
-   - Add it to `MERCHANT_UPI_ID` in .env
 
 ## Installation
 
@@ -89,13 +59,10 @@ curl -X POST "http://localhost:8000/api/v1/payments/order" \
   -d '{"pack_id": 1}'
 ```
 
-2. **Verify Real UPI Link:**
-   - Check that UPI link contains your real UPI ID
-   - Test payment flow with small amount
-
-3. **Test Webhook:**
-   - Use Razorpay's webhook testing tool
-   - Verify signature validation works
+2. **Test Payment Flow:**
+   - Test credit pack purchase
+   - Verify credits are added to wallet
+   - Check transaction history
 
 ## Security Checklist
 

@@ -16,19 +16,19 @@ import uuid
 
 router = APIRouter()
 
-# S3/MinIO configuration
+ 
 STORAGE_ENDPOINT = os.getenv("STORAGE_ENDPOINT", "http://127.0.0.1:9000")
 STORAGE_BUCKET = os.getenv("STORAGE_BUCKET", "cvs")
 STORAGE_ACCESS_KEY = os.getenv("STORAGE_ACCESS_KEY")
 STORAGE_SECRET_KEY = os.getenv("STORAGE_SECRET_KEY")
 
-# Initialize S3 client
+ 
 s3_client = boto3.client(
     's3',
     endpoint_url=STORAGE_ENDPOINT,
     aws_access_key_id=STORAGE_ACCESS_KEY,
     aws_secret_access_key=STORAGE_SECRET_KEY,
-    region_name='us-east-1'  # Default region for MinIO
+    region_name='us-east-1'   
 )
 
 @router.post("/presign", response_model=CVPresignResponse)
@@ -47,7 +47,7 @@ def presign_cv_upload(
     4. Returns the URL and metadata for frontend to use
     """
     try:
-        # Validate role_id if provided
+       
         if presign_data.role_id:
             role = session.query(Role).filter(
                 Role.id == presign_data.role_id, 
@@ -56,16 +56,16 @@ def presign_cv_upload(
             if not role:
                 raise HTTPException(status_code=404, detail="Role not found or inactive")
 
-        # Validate file type
+         
         allowed_types = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
         if presign_data.mime_type not in allowed_types:
             raise HTTPException(status_code=400, detail="Invalid file type. Only PDF, DOC, and DOCX are allowed")
 
-        # Generate unique filename
+         
         file_extension = presign_data.filename.split('.')[-1]
         unique_filename = f"{current_user.id}/{uuid.uuid4()}.{file_extension}"
 
-        # Generate presigned URL
+
         presigned_url = s3_client.generate_presigned_url(
             'put_object',
             Params={
@@ -102,7 +102,7 @@ def confirm_cv_upload(
     Confirm CV upload and create CV record
     """
     try:
-        # Validate role_id if provided
+       
         if confirm_data.role_id:
             role = session.query(Role).filter(
                 Role.id == confirm_data.role_id, 
@@ -111,15 +111,15 @@ def confirm_cv_upload(
             if not role:
                 raise HTTPException(status_code=404, detail="Role not found or inactive")
 
-        # Validate file size (10MB limit)
+         
         max_size = 10 * 1024 * 1024  # 10MB in bytes
         if confirm_data.size_bytes > max_size:
             raise HTTPException(status_code=400, detail="File size exceeds 10MB limit")
 
-        # Use the storage filename from presign step
+         
         storage_url = f"{STORAGE_ENDPOINT}/{STORAGE_BUCKET}/{confirm_data.storage_filename}"
 
-        # Create CV record
+         
         cv = CV(
             user_id=current_user.id,
             role_id=confirm_data.role_id,
@@ -163,10 +163,10 @@ def get_user_cvs(
     Get list of user's CVs with pagination
     """
     try:
-        # Get total count
+         
         total = session.query(CV).filter(CV.user_id == current_user.id).count()
         
-        # Get CVs with pagination
+         
         cvs = session.query(CV).filter(
             CV.user_id == current_user.id
         ).offset(skip).limit(limit).all()
@@ -198,10 +198,10 @@ def delete_cv(
     session: SessionDep
 ):
     """
-    Delete a CV file from database and optionally from storage
+     
     """
     try:
-        # Find CV and verify ownership
+         
         cv = session.query(CV).filter(
             CV.id == cv_id,
             CV.user_id == current_user.id
@@ -210,27 +210,25 @@ def delete_cv(
         if not cv:
             raise HTTPException(status_code=404, detail="CV not found")
 
-        # Try to delete from MinIO storage (optional)
+         
         minio_deleted = False
         try:
-            # Extract key from storage_url
-            # storage_url format: http://127.0.0.1:9000/cvs/user_id/uuid.pdf
+             
             storage_url_parts = cv.storage_url.split(f"{STORAGE_BUCKET}/")
             if len(storage_url_parts) == 2:
                 key = storage_url_parts[1]
                 s3_client.delete_object(Bucket=STORAGE_BUCKET, Key=key)
                 minio_deleted = True
         except Exception as e:
-            # MinIO deletion failed (not running, network error, etc.)
-            # Log the error but continue with DB deletion
+             
             print(f"MinIO deletion failed for CV {cv_id}: {str(e)}")
             minio_deleted = False
 
-        # Always delete from database
+         
         session.delete(cv)
         session.commit()
 
-        # Return success message
+
         if minio_deleted:
             return {"message": "CV deleted successfully from database and storage"}
         else:
@@ -263,7 +261,6 @@ def get_cv_download_url(
     The URL can be used to download/view the file directly from MinIO
     """
     try:
-        # Find CV and verify ownership
         cv = session.query(CV).filter(
             CV.id == cv_id,
             CV.user_id == current_user.id
@@ -272,22 +269,19 @@ def get_cv_download_url(
         if not cv:
             raise HTTPException(status_code=404, detail="CV not found")
 
-        # Extract the key from storage_url
-        # storage_url format: http://127.0.0.1:9000/cvs/user_id/uuid.pdf
         storage_url_parts = cv.storage_url.split(f"{STORAGE_BUCKET}/")
         if len(storage_url_parts) != 2:
             raise HTTPException(status_code=500, detail="Invalid storage URL format")
         
         key = storage_url_parts[1]
 
-        # Generate presigned download URL
         presigned_url = s3_client.generate_presigned_url(
             'get_object',
             Params={
                 'Bucket': STORAGE_BUCKET,
                 'Key': key
             },
-            ExpiresIn=900  # 15 minutes expiry
+            ExpiresIn=900  
         )
 
         return CVDownloadResponse(

@@ -90,7 +90,6 @@ def test_payment_routes():
             print("✅ Payment order created")
             print(f"Order ID: {order_result.get('order_id')}")
             print(f"Amount: ₹{order_result.get('amount')}")
-            print(f"UPI Link: {order_result.get('upi_link')}")
         else:
             print(f"❌ Order failed: {order_response.text}")
     except Exception as e:

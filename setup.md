@@ -139,7 +139,7 @@ If you want to run both services quickly:
 ## Next Steps
 
 1. **Extend Backend**: Add the missing models and endpoints according to the specification
-2. **Payment Integration**: Implement Razorpay for UPI payments
+2. **Payment Integration**: Implement payment gateway integration (if needed)
 3. **File Storage**: Set up S3 or MinIO for CV storage
 4. **Real-time Features**: Add WebSocket support for live interviews
 5. **Testing**: Add comprehensive test suites

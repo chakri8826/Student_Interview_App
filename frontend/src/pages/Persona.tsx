@@ -8,12 +8,12 @@ import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Progress } from '@/components/ui/Progress';
 import { personaAPI } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
-import { 
-  ArrowLeft, 
-  User, 
-  Brain, 
-  Target, 
-  TrendingUp, 
+import {
+  ArrowLeft,
+  User,
+  Brain,
+  Target,
+  TrendingUp,
   Award,
   CheckCircle,
   Clock,
@@ -40,9 +40,9 @@ const Persona = () => {
   const [isComputing, setIsComputing] = useState(false);
 
   const handleLogout = () => {
-    localStorage.removeItem('access_token');
+    try { const { setAuthToken } = require('@/lib/api'); setAuthToken(null); } catch { }
     localStorage.removeItem('name');
-    navigate('/login');
+    navigate('/login', { replace: true });
   }
 
   // Fetch user persona
@@ -122,7 +122,7 @@ const Persona = () => {
             </Button>
             <div className="h-8 w-48 bg-gray-200 rounded animate-pulse"></div>
           </div>
-          
+
           <div className="grid gap-6">
             <Card>
               <CardContent className="p-8">
@@ -170,7 +170,7 @@ const Persona = () => {
                 </Alert>
 
                 <div className="space-y-4">
-                  <Button 
+                  <Button
                     onClick={handleComputePersona}
                     disabled={isComputing}
                     className="w-full"
@@ -254,8 +254,8 @@ const Persona = () => {
                         Professional Summary
                       </h3>
                       <p className="text-blue-800 leading-relaxed">
-                        {personaData.summary.professional_summary || 
-                         "Your AI persona analyzes your CV, selected roles, and profile to create a comprehensive professional summary that helps AI interviewers understand your background and tailor questions accordingly."}
+                        {personaData.summary.professional_summary ||
+                          "Your AI persona analyzes your CV, selected roles, and profile to create a comprehensive professional summary that helps AI interviewers understand your background and tailor questions accordingly."}
                       </p>
                     </div>
                   </div>
@@ -316,8 +316,8 @@ const Persona = () => {
                     {personaData.skills.map((skill: string, index: number) => (
                       <div key={index} className="flex items-center space-x-2">
                         {getSkillIcon(skill)}
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className={`${getSkillColor(skill)} border`}
                         >
                           {skill}
@@ -347,12 +347,12 @@ const Persona = () => {
                   <span className="text-sm font-medium">85%</span>
                 </div>
                 <Progress value={85} className="h-2" />
-                
+
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Skills Identified</span>
                   <span className="text-sm font-medium">{personaData.skills?.length || 0}</span>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Last Updated</span>
                   <span className="text-sm font-medium">

@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 
-# CV schemas
+ 
 class CVPresignRequest(BaseModel):
     filename: str
     mime_type: str
@@ -13,8 +13,8 @@ class CVPresignResponse(BaseModel):
     fields: dict
 
 class CVConfirmRequest(BaseModel):
-    filename: str  # Original filename
-    storage_filename: str  # The filename generated during presign (from fields)
+    filename: str  
+    storage_filename: str  
     role_id: Optional[int] = None
     size_bytes: int
 
@@ -31,7 +31,7 @@ class CVResponse(BaseModel):
 
 class CVDownloadResponse(BaseModel):
     download_url: str
-    expires_in: int  # seconds until URL expires
+    expires_in: int  
 
 class CVListResponse(BaseModel):
     cvs: List[CVResponse]

@@ -14,7 +14,6 @@ class User(Base):
     def __repr__(self):
         return f"<User(id={self.id}, name='{self.name}', email='{self.email}')>"
 
-# Add indexes
 __table_args__ = (
     Index('ix_users_email', 'email'),
 )

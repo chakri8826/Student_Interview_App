@@ -1,5 +1,6 @@
 import React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { setAuthToken } from '@/lib/api'
 import { Button } from '@/components/ui/Button'
 import { User, LogOut, CreditCard, FileText, Briefcase, Home } from 'lucide-react'
 
@@ -10,9 +11,9 @@ export function Navbar() {
   const userName = localStorage.getItem('name') || 'User'
 
   const handleLogout = () => {
-    localStorage.removeItem('access_token')
+    setAuthToken(null)
     localStorage.removeItem('name')
-    navigate('/login')
+    navigate('/login', { replace: true })
   }
 
   return (
@@ -24,7 +25,7 @@ export function Navbar() {
               <Briefcase className="h-6 w-6" />
               <span className="font-bold text-xl">Interview Platform</span>
             </Link>
-            
+
             {isAuthenticated && (
               <div className="hidden md:flex items-center space-x-6">
                 <Link

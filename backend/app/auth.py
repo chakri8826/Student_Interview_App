@@ -32,7 +32,6 @@ def create_refresh_token(data: dict, expires_delta: timedelta | None = None):
 def decode_refresh_token(token: str):
     try:
         payload = jwt.decode(token, REFRESH_SECRET_KEY, algorithms=[REFRESH_ALGORITHM])
-        # Optional: enforce token type
         if payload.get("typ") != "refresh":
             return None
         return payload

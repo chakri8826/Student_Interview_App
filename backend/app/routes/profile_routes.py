@@ -55,11 +55,11 @@ def update_user_profile(
             user_profile.full_name = profile_data.full_name
         if profile_data.phone is not None:
             user_profile.phone = profile_data.phone
-            # mirror to users table as before
+
             current_user.phone = profile_data.phone
         if profile_data.city is not None:
             user_profile.city = profile_data.city
-            # mirror to users table as before
+             
             current_user.city = profile_data.city
         activity = Activity(user_id=current_user.id, kind="profile_update", ref_id=f"profile_update_{current_user.id}")
         session.add(activity)
