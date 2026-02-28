@@ -50,7 +50,7 @@ The application is built with a modern tech stack, featuring a React TypeScript 
 
 - **AI-Powered CV Analysis**
   - Extract text from uploaded CV files
-  - AI analysis using OpenAI or Google Gemini
+  - AI analysis using GitHub Models (e.g., OpenAI GPT-4.1 via GitHub)
   - Role recommendations based on CV content
   - Skills summary and improvement suggestions
   - Consumes 1 credit per analysis
@@ -104,7 +104,7 @@ The application is built with a modern tech stack, featuring a React TypeScript 
 - **Client**: boto3
 
 ### AI Services
-- **CV Analysis**: OpenAI API, Google Gemini API
+- **CV Analysis**: GitHub Models API (OpenAI-compatible, e.g. `openai/gpt-4.1`)
 - **Mock Interviews**: Tavus API
 
 ### Development Tools
@@ -133,10 +133,10 @@ The application is built with a modern tech stack, featuring a React TypeScript 
         ┌─────────────────────┼─────────────────────┐
         │                     │                     │
         ▼                     ▼                     ▼
-  ┌──────────┐         ┌──────────┐         ┌──────────┐
-  │  OpenAI  │         │  Gemini  │         │  Tavus   │
-  │    API   │         │    API   │         │    API   │
-  └──────────┘         └──────────┘         └──────────┘
+  ┌──────────────┐      ┌──────────┐         ┌──────────┐
+  │ GitHub Models│      │  (Future)│         │  Tavus   │
+  │ (CV Analysis)│      │          │         │    API   │
+  └──────────────┘      └──────────┘         └──────────┘
 ```
 
 ### Component Interactions
@@ -158,7 +158,7 @@ The application is built with a modern tech stack, featuring a React TypeScript 
    - Backend confirms upload and creates CV record
 
 4. **AI Service Integration**
-   - CV Analysis: Backend extracts text, sends to OpenAI/Gemini API
+   - CV Analysis: Backend extracts text, sends to GitHub Models API (chat/completions)
    - Mock Interviews: Backend creates Tavus conversation, returns join URL
    - Credits deducted before AI service calls
 
@@ -236,23 +236,22 @@ The platform uses a credit-based monetization model where users purchase credits
 
 ## AI Integrations
 
-### CV Analysis (OpenAI & Google Gemini)
+### CV Analysis (GitHub Models)
 
 **Flow:**
 1. User uploads CV file
 2. Backend extracts text from PDF/DOCX
-3. Text sent to AI provider (configurable)
+3. Text sent to GitHub Models API (`/chat/completions`)
 4. AI analyzes CV and returns:
    - Recommended job roles (3-5)
    - Key skills summary
    - Improvement suggestions
 5. Analysis stored and returned to user
 
-**Configuration:**
-- Provider selection via `AI_PROVIDER` env variable
-- Model selection via `AI_MODEL` env variable
-- Default: Google Gemini (`gemini-1.5-flash`)
-- Fallback: OpenAI (`gpt-4o-mini`)
+**Configuration (required for CV screening):**
+- `GITHUB_TOKEN` – GitHub PAT with `models` scope
+- `AI_MODEL` – Model ID (default: `openai/gpt-4.1`)
+- `GITHUB_MODELS_ENDPOINT` – Base endpoint (default: `https://models.github.ai/inference` or full URL `https://models.github.ai/inference/chat/completions`)
 
 **Cost:** 1 credit per analysis
 
@@ -428,9 +427,10 @@ The platform uses MinIO, an S3-compatible object storage service, for CV file st
    STORAGE_ACCESS_KEY=minioadmin
    STORAGE_SECRET_KEY=minioadmin
    
-   API_KEY=your-openai-or-gemini-api-key
-   AI_PROVIDER=google
-   AI_MODEL=gemini-1.5-flash
+   # GitHub Models for CV screening
+   GITHUB_TOKEN=your-github-pat-with-models-scope
+   AI_MODEL=openai/gpt-4.1
+   GITHUB_MODELS_ENDPOINT=https://models.github.ai/inference
    
    TAVUS_API_KEY=your-tavus-api-key
    TAVUS_BASE_URL=https://tavusapi.com
@@ -507,15 +507,12 @@ The platform uses MinIO, an S3-compatible object storage service, for CV file st
 
 ### AI Service Setup
 
-1. **OpenAI**
-   - Get API key from [OpenAI Platform](https://platform.openai.com/)
-   - Set `API_KEY` and `AI_PROVIDER=openai` in `.env`
+1. **GitHub Models (CV Analysis)**
+   - Create a [GitHub Personal Access Token](https://github.com/settings/tokens) with `models` scope
+   - Set `GITHUB_TOKEN`, `AI_MODEL` (e.g. `openai/gpt-4.1`), and optionally `GITHUB_MODELS_ENDPOINT` in `.env`
+   - See [GitHub Models docs](https://docs.github.com/en/github-models/quickstart) for details
 
-2. **Google Gemini**
-   - Get API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
-   - Set `API_KEY` and `AI_PROVIDER=google` in `.env`
-
-3. **Tavus**
+2. **Tavus**
    - Get API key from [Tavus Platform](https://tavus.io/)
    - Configure replica and persona IDs in `.env`
 

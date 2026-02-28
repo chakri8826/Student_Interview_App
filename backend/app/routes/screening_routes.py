@@ -10,7 +10,6 @@ import boto3
 from botocore.exceptions import ClientError
 from PyPDF2 import PdfReader
 from docx import Document
-from openai import OpenAI
 
 from app.dependencies import SessionDep, get_curr_user
 from app.models.user_model import User
@@ -80,65 +79,58 @@ def run_screening(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to read CV file: {str(e)}")
 
-        ai_api_key = os.getenv('API_KEY')
-        ai_provider = os.getenv('AI_PROVIDER', 'google').lower()
-        ai_model = os.getenv('AI_MODEL', 'gemini-1.5-flash')
+        github_token = os.getenv("GITHUB_TOKEN")
+        if not github_token:
+            raise HTTPException(status_code=500, detail="GITHUB_TOKEN is not configured for GitHub Models")
+
+        ai_model = os.getenv("AI_MODEL", "openai/gpt-4.1")
 
         analysis = None
-        if ai_api_key:
-            try:
-                prompt = (
-                    "You are an expert CV screener. Given the resume text below, "
-                    "identify the most relevant job roles (3-5), summarize key skills, "
-                    "and suggest improvements. Return a JSON with these fields: "
-                    "roles (array of strings), skills (array of strings), summary (string), "
-                    "and improvements (array of strings)."
-                )
+        try:
+            prompt = (
+                "You are an expert CV screener. Given the resume text below, "
+                "identify the most relevant job roles (3-5), summarize key skills, "
+                "and suggest improvements. Return a JSON with these fields: "
+                "roles (array of strings), skills (array of strings), summary (string), "
+                "and improvements (array of strings)."
+            )
 
-                if ai_provider == 'google':
-                    url = f"https://generativelanguage.googleapis.com/v1/models/{ai_model}:generateContent?key={ai_api_key}"
+            # Match the working call pattern from your other project:
+            # base "https://models.github.ai/inference" or full "https://models.github.ai/inference/chat/completions"
+            endpoint = os.getenv(
+                "GITHUB_MODELS_ENDPOINT",
+                "https://models.github.ai/inference/chat/completions",
+            )
+            url = endpoint if endpoint.rstrip("/").endswith("chat/completions") else f"{endpoint.rstrip('/')}/chat/completions"
 
+            payload = {
+                "model": ai_model or "openai/gpt-4.1",
+                "messages": [
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": text_content[:15000]},
+                ],
+                "temperature": 1,
+                "top_p": 1,
+            }
 
-                    prompt_text = (
-                        f"{prompt}\n\nHere is the resume text:\n{text_content[:15000]}"
-                    )
+            # Use minimal headers like the GitHub Models quickstart
+            headers = {
+                "Authorization": f"Bearer {github_token}",
+                "Content-Type": "application/json",
+            }
 
-                    payload = {
-                        "contents": [{"parts": [{"text": prompt_text}]}],
-                        "generationConfig": {"temperature": 0.2}
-                    }
+            r = requests.post(url, headers=headers, json=payload, timeout=120)
+            r.raise_for_status()
+            data = r.json()
 
-                    r = requests.post(url, json=payload, timeout=60)
-                    r.raise_for_status()
-                    data = r.json()
+            analysis = (
+                data.get("choices", [{}])[0]
+                .get("message", {})
+                .get("content", "")
+            )
 
-                    analysis = (
-                        data.get("candidates", [{}])[0]
-                        .get("content", {})
-                        .get("parts", [{}])[0]
-                        .get("text", "")
-                    )
-
-                    try:
-                        analysis_json = json.loads(analysis)
-                        analysis = analysis_json
-                    except Exception:
-                        pass
-
-                else:
-                    client = OpenAI(api_key=ai_api_key)
-                    completion = client.chat.completions.create(
-                        model=ai_model or 'gpt-4o-mini',
-                        messages=[
-                            {"role": "system", "content": prompt},
-                            {"role": "user", "content": text_content[:15000]},
-                        ],
-                        temperature=0.2,
-                    )
-                    analysis = completion.choices[0].message.content
-
-            except Exception as e:
-                analysis = f"AI analysis failed: {str(e)}"
+        except Exception as e:
+            analysis = f"AI analysis failed: {str(e)}"
 
         screening = Screening(
             user_id=current_user.id,

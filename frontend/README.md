@@ -213,13 +213,14 @@ The frontend integrates with the FastAPI backend through a comprehensive API cli
 - `rolesAPI.getUserRoles()` - Get user's selected roles
 - `rolesAPI.addRoleSelection()` - Add role selections
 
-### CV Management
+### CV Management & Screening
 
 - `cvsAPI.presignUpload()` - Get presigned upload URL
 - `cvsAPI.confirmUpload()` - Confirm file upload
 - `cvsAPI.getUserCVs()` - Get user's CVs
 - `cvsAPI.deleteCV()` - Delete CV
 - `cvsAPI.getDownloadUrl()` - Get download URL
+- `screeningAPI.runScreening()` - Run AI-powered CV analysis (GitHub Models)
 
 ### Wallet & Payments
 
